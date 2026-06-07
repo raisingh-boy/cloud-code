@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { SomaticNode, SomaticLink, Story, Domain, NodeStatus } from '../types';
+import { ALL_STORIES, INITIAL_LINKS, SAMPLE_AUDIO } from '../data/nodesData';
 import { 
   X, Heart, Share2, Link2, BookOpen, MapPin, 
-  Play, Pause, Award, User, HelpCircle, Flame, Plus, Check 
+  Play, Pause, Award, User, HelpCircle, Flame, Plus, Check, FileText 
 } from 'lucide-react';
 
 interface NodeCardProps {
@@ -17,6 +18,8 @@ interface NodeCardProps {
   onAddStory: (nodeId: string, text: string) => void;
   onPlayAudio?: (nodeId: string) => void;
   playingNodeId?: string | null;
+  allStories?: Story[];
+  links?: SomaticLink[];
 }
 
 const DOMAIN_STYLES: Record<Domain, { color: string; bg: string; border: string; text: string }> = {
@@ -30,7 +33,7 @@ const DOMAIN_STYLES: Record<Domain, { color: string; bg: string; border: string;
 
 const STATUS_LABELS = {
   ru: {
-    seed: 'Семья (Поле)',
+    seed: 'Семя (Поле)',
     sprout: 'Росток (Поле)',
     alive: 'Живая нода',
     rooted: 'Укоренившаяся',
@@ -45,6 +48,16 @@ const STATUS_LABELS = {
   }
 };
 
+const NODE_TYPE_LABELS: Record<string, { ru: string; en: string }> = {
+  concept: { ru: 'Теоретический концепт', en: 'Theoretical Concept' },
+  practice: { ru: 'Практический метод', en: 'Practical Method' },
+  person: { ru: 'Деятель / Деятельница', en: 'Historical Figure' },
+  movement: { ru: 'Техника движения', en: 'Movement Technique' },
+  event: { ru: 'Школа / Событие', en: 'Movement / Historical Event' },
+  observation: { ru: 'Наблюдение', en: 'Observation' },
+  question: { ru: 'Вопрос повестки', en: 'Agenda Question' }
+};
+
 export default function NodeCard({
   node,
   allNodes,
@@ -56,9 +69,11 @@ export default function NodeCard({
   onCarryOver,
   onAddStory,
   onPlayAudio,
-  playingNodeId
+  playingNodeId,
+  allStories,
+  links
 }: NodeCardProps) {
-  const [activeTab, setActiveTab] = useState<'essence' | 'stories' | 'minimap'>('essence');
+  const [activeTab, setActiveTab] = useState<'essence' | 'stories' | 'minimap' | 'materials'>('essence');
   const [isConnectingMode, setIsConnectingMode] = useState<boolean>(false);
   const [selectedTargetId, setSelectedTargetId] = useState<string>('');
   const [newStoryText, setNewStoryText] = useState<string>('');
@@ -85,12 +100,40 @@ export default function NodeCard({
     return Math.min(100, Math.max(10, (node.resonances / 100) * 100));
   };
 
-  // Find linked neighbor nodes (mocked/pre-computed from database references)
+  // Find linked neighbor nodes dynamically from actual links
   const getLinkedNodes = () => {
-    // Return surrounding related nodes
-    const relatedList = allNodes.filter(n => n.id !== node.id && n.domain === node.domain);
-    // Take up to 4 items
-    return relatedList.slice(0, 4);
+    const activeLinks = links || INITIAL_LINKS;
+    const connected = allNodes.filter(n => {
+      if (n.id === node.id) return false;
+      return activeLinks.some(l => 
+        (l.source === node.id && l.target === n.id) || 
+        (l.target === node.id && l.source === n.id)
+      );
+    });
+    
+    // fallback to peers of same domain
+    return connected.length > 0 
+      ? connected.slice(0, 5) 
+      : allNodes.filter(n => n.id !== node.id && n.domain === node.domain).slice(0, 4);
+  };
+
+  // Gather coupling stories from edges
+  const getStoriesForNode = () => {
+    const activeLinks = links || INITIAL_LINKS;
+    const activeStories = allStories || ALL_STORIES;
+    const linkIds = activeLinks.filter(l => l.source === node.id || l.target === node.id).map(l => l.id);
+    return activeStories.filter(story => 
+      linkIds.includes(story.edgeId) || 
+      story.figureA?.toLowerCase().includes(node.id.toLowerCase()) || 
+      story.figureB?.toLowerCase().includes(node.id.toLowerCase())
+    );
+  };
+
+  // Find associated audio guides
+  const getAudiosForNode = () => {
+    return SAMPLE_AUDIO.filter(track => 
+      track.timelineNodes.some(tn => tn.nodeId === node.id)
+    );
   };
 
   const handleResonateClick = () => {
@@ -122,6 +165,8 @@ export default function NodeCard({
   };
 
   const linkedNeighbors = getLinkedNodes();
+  const matchedStories = getStoriesForNode();
+  const matchedAudios = getAudiosForNode();
 
   return (
     <div 
@@ -135,17 +180,23 @@ export default function NodeCard({
       <div className="p-5 pb-4 border-b border-white/5 relative bg-[#0C1220]/75 shrink-0">
         <button 
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg active:scale-95 transition-all"
+          className="absolute top-5 right-5 p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg active:scale-95 transition-all cursor-pointer"
           id="close-card-btn"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Domain Badge */}
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase mb-2 ${style.bg} ${style.border} ${style.text}`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-          {node.domain.toUpperCase()}
-        </span>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase ${style.bg} ${style.border} ${style.text}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+            {node.domain.toUpperCase()}
+          </span>
+          
+          <span className="px-2 py-0.5 rounded bg-white/5 text-[9px] font-mono border border-white/5 text-gray-400 uppercase">
+            {node.level?.toUpperCase() || 'MESO'}
+          </span>
+        </div>
 
         {/* Real-time title of Node */}
         <h2 className="text-xl font-bold font-sans tracking-tight text-white mb-1 pr-8">
@@ -196,39 +247,44 @@ export default function NodeCard({
         </div>
       </div>
 
-      {/* Tabs navigation panel */}
-      <div className="flex bg-[#070B13] border-b border-white/5 text-xs font-semibold shrink-0">
+      {/* 4 Tabs navigation panel */}
+      <div className="flex bg-[#070B13] border-b border-white/5 text-[10px] font-mono tracking-wider shrink-0 divide-x divide-white/5">
         <button 
           onClick={() => setActiveTab('essence')}
-          className={`flex-1 py-3 text-center border-b-2 transition-all ${
-            activeTab === 'essence' ? 'border-[#DFB757] text-[#DFB757] bg-white/20 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+          className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer uppercase ${
+            activeTab === 'essence' ? 'border-[#DFB757] text-[#DFB757] bg-white/5 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
           }`}
-          id="essence-tab"
         >
-          {language === 'ru' ? 'СУТЬ' : 'ESSENCE'}
+          {language === 'ru' ? 'Суть' : 'Essence'}
         </button>
         <button 
           onClick={() => setActiveTab('stories')}
-          className={`flex-1 py-3 text-center border-b-2 transition-all ${
-            activeTab === 'stories' ? 'border-[#DFB757] text-[#DFB757] bg-white/20 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+          className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer uppercase ${
+            activeTab === 'stories' ? 'border-[#DFB757] text-[#DFB757] bg-white/5 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
           }`}
-          id="stories-tab"
         >
-          {language === 'ru' ? 'ИСТОРИИ' : 'NARRATIVES'}
+          {language === 'ru' ? 'Истории' : 'Narratives'}
         </button>
         <button 
           onClick={() => setActiveTab('minimap')}
-          className={`flex-1 py-3 text-center border-b-2 transition-all ${
-            activeTab === 'minimap' ? 'border-[#DFB757] text-[#DFB757] bg-white/20 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+          className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer uppercase ${
+            activeTab === 'minimap' ? 'border-[#DFB757] text-[#DFB757] bg-white/5 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
           }`}
-          id="minimap-tab"
         >
-          {language === 'ru' ? 'ЛОКАЛЬНАЯ КАРТА' : 'LATTICE MAP'}
+          {language === 'ru' ? 'Карта' : 'Lattice'}
+        </button>
+        <button 
+          onClick={() => setActiveTab('materials')}
+          className={`flex-1 py-3 text-center border-b-2 transition-all cursor-pointer uppercase ${
+            activeTab === 'materials' ? 'border-[#DFB757] text-[#DFB757] bg-white/5 font-bold' : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          {language === 'ru' ? 'Материалы' : 'Data'}
         </button>
       </div>
 
       {/* Scrollable Tabs Viewport */}
-      <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-[#060910]">
         
         {/* TAB 1: ESSENCE (СУТЬ) */}
         {activeTab === 'essence' && (
@@ -236,7 +292,15 @@ export default function NodeCard({
             {/* The semantic digest */}
             <div className="bg-[#0C1220]/50 border border-white/5 p-4 rounded-xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#DFB757]"></div>
-              <p className="text-sm font-sans text-gray-300 leading-relaxed italic">
+              
+              <div className="text-[10px] font-mono text-[#DFB757] mb-2 uppercase tracking-widest">
+                {language === 'ru' ? 'КАТЕГОРИЗАЦИЯ УЗЛА:' : 'NODE ATTRIBUTES:'}
+              </div>
+              <p className="text-xs text-gray-400 font-mono mb-3 uppercase">
+                {language === 'ru' ? 'Тип:' : 'Type:'} {NODE_TYPE_LABELS[node.type || 'concept'][language]}
+              </p>
+
+              <p className="text-sm font-sans text-gray-300 leading-relaxed italic border-t border-white/5 pt-3">
                 "{language === 'ru' ? node.descriptionRu : node.descriptionEn}"
               </p>
             </div>
@@ -244,19 +308,18 @@ export default function NodeCard({
             {/* Clickable links topology references */}
             <div>
               <h4 className="text-[10px] font-mono tracking-widest text-[#DFB757] uppercase mb-2.5">
-                {language === 'ru' ? 'ПЕРЕСЕКАЕТСЯ С СЕМЕЙСТВАМИ:' : 'INTERSECTS WITH:'}
+                {language === 'ru' ? 'БЛИЖАЙШИЕ ПЕРЕСЕЧЕНИЯ:' : 'CONNECTED CORRELATIONS:'}
               </h4>
               <div className="grid grid-cols-1 gap-2">
                 {linkedNeighbors.map(neighbor => {
-                  const nStyle = DOMAIN_STYLES[neighbor.domain] || DOMAIN_STYLES.hybrid;
                   return (
                     <button
                       key={neighbor.id}
                       onClick={() => onSelectNode(neighbor)}
-                      className="w-full text-left p-2.5 bg-white/5 border border-white/5 hover:border-white/25 active:bg-white/10 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer group"
+                      className="w-full text-left p-2.5 bg-white/5 border border-white/5 hover:border-[#DFB757]/30 hover:bg-[#DFB757]/5 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer group"
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: DOMAIN_STYLES[neighbor.domain].color }} />
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: DOMAIN_STYLES[neighbor.domain].color }} />
                         <span className="font-sans text-gray-300 group-hover:text-white transition-colors">
                           {language === 'ru' ? neighbor.nameRu : neighbor.nameEn}
                         </span>
@@ -298,11 +361,11 @@ export default function NodeCard({
           <div className="flex flex-col gap-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <h4 className="text-[10px] font-mono tracking-widest text-[#DFB757] uppercase">
-                {language === 'ru' ? 'ИСТОРИИ И СОЧЕТАНИЯ СВЯЗЕЙ:' : 'DO YOU KNOW THAT...:'}
+                {language === 'ru' ? 'ИСТОРИИ И СОЧЕТАНИЯ СВЯЗЕЙ:' : 'HISTORICAL COUPLING NARRATIVES:'}
               </h4>
               <button 
                 onClick={() => setShowAddStoryForm(!showAddStoryForm)}
-                className="text-xs font-sans text-indigo-400 hover:text-white flex items-center gap-1 active:scale-95 transition-all"
+                className="text-xs font-mono text-indigo-400 hover:text-white flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 {language === 'ru' ? 'Добавить историю' : 'Add Narrative'}
@@ -327,13 +390,13 @@ export default function NodeCard({
                   <button 
                     type="button" 
                     onClick={() => setShowAddStoryForm(false)}
-                    className="px-2.5 py-1 text-gray-400 hover:text-white"
+                    className="px-2.5 py-1 text-gray-400 hover:text-white cursor-pointer"
                   >
                     {language === 'ru' ? 'Отмена' : 'Cancel'}
                   </button>
                   <button 
                     type="submit" 
-                    className="px-3 py-1 bg-indigo-500/80 hover:bg-indigo-600 rounded text-white font-semibold transition-all active:scale-95"
+                    className="px-3 py-1 bg-indigo-500/80 hover:bg-indigo-600 rounded text-white font-semibold transition-all active:scale-95 cursor-pointer"
                   >
                     {language === 'ru' ? 'Опубликовать' : 'Submit'}
                   </button>
@@ -343,32 +406,40 @@ export default function NodeCard({
 
             {/* The archive narratives loop */}
             <div className="space-y-3">
-              {node.stories.map((story) => (
+              {matchedStories.map((story) => (
                 <div key={story.id} className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500 font-mono">
-                    <span className="flex items-center gap-1">
-                      <User className="w-3 h-3 text-indigo-400" />
-                      @{story.author}
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 font-mono border-b border-white/5 pb-1.5">
+                    <span className="flex items-center gap-1 uppercase tracking-wide text-indigo-400 font-semibold">
+                      {story.titleRu || story.titleEn}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                      {story.rating} {language === 'ru' ? 'раз.' : 'res.'}
+                      <Flame className="w-3.5 h-3.5 text-amber-500" />
+                      {story.resonances} {language === 'ru' ? 'раз.' : 'res.'}
                     </span>
                   </div>
+                  
+                  {story.year && (
+                    <span className="text-[10px] text-[#DFB757] font-mono uppercase">
+                      {language === 'ru' ? `Эпоха пересечения: ${story.year} г.` : `Union Epoch: ${story.year}`}
+                    </span>
+                  )}
+
                   <p className="text-xs text-gray-300 font-sans leading-relaxed">
                     {language === 'ru' ? story.textRu : story.textEn}
                   </p>
                 </div>
               ))}
 
-              {node.stories.length === 0 && (
+              {matchedStories.length === 0 && (
                 <div className="p-8 text-center border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-gray-500 gap-1.5 bg-black/10">
                   <BookOpen className="w-8 h-8 opacity-40 text-[#DFB757]" />
-                  <p className="text-xs">
-                    {language === 'ru' ? 'Историй пока нет.' : 'No stories registered.'}
+                  <p className="text-xs font-semibold">
+                    {language === 'ru' ? 'Историй связи пока нет.' : 'No stories registered.'}
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    {language === 'ru' ? 'Коллективный разум спит...' : 'Be the first investigator to tell one!'}
+                  <p className="text-[10px] text-gray-500 max-w-[280px]">
+                    {language === 'ru' 
+                      ? 'В новой архитектуре все соматические истории привязаны к ребрам пересечения концепций. Станьте первым, кто закрепит здесь междисциплинарный синтез!' 
+                      : 'Somatic narratives are coupled directly to transdisciplinary edge linkages. Add a beautiful synthesis of concepts below!'}
                   </p>
                 </div>
               )}
@@ -380,10 +451,10 @@ export default function NodeCard({
         {activeTab === 'minimap' && (
           <div className="flex flex-col gap-3 animate-fade-in h-[320px]">
             <h4 className="text-[10px] font-mono tracking-widest text-[#DFB757] uppercase">
-              {language === 'ru' ? 'СЕМАНТИЧЕСКИЕ ПАУТИНЫ РАССТОЯНИЙ:' : 'THE SEMANTIC RADIAL SPHERE (1-LEVEL OUT):'}
+              {language === 'ru' ? 'ИНТЕРАКТИВНОЕ СОЗВЕЗДИЕ СВЯЗЕЙ (1-й УРОВЕНЬ):' : 'RADIAL INTERACTION CONSTELATION:'}
             </h4>
-            <p className="text-[11px] text-gray-500">
-              {language === 'ru' ? 'Все соседние укорененные ноды и мосты. Кликните на любую ноду, чтобы войти в неё.' : 'Radial navigation map of near neighbors. Jump between somatic states inside the cards!'}
+            <p className="text-[11px] text-gray-500 leading-relaxed font-sans">
+              {language === 'ru' ? 'Паутина прямых соматических отношений. Нажмите на любой спутник, чтобы перенести фокус изучения на его карточку.' : 'Somatic relations immediately surrounding this center point. Tap neighborhood satellites to navigate seamlessly.'}
             </p>
 
             {/* Interactive local graph container */}
@@ -397,7 +468,7 @@ export default function NodeCard({
 
               {/* Central Primary Node */}
               <div className="relative z-10 w-24 h-24 rounded-full border-2 border-[#DFB757] bg-[#0E1528] flex flex-col items-center justify-center p-2 text-center shadow-xl animate-pulse">
-                <span className="text-[9px] font-mono text-[#DFB757]">CENTER</span>
+                <span className="text-[8px] font-mono text-[#DFB757] mb-1">CENTER</span>
                 <span className="text-[10px] font-bold text-white leading-tight line-clamp-2">
                   {language === 'ru' ? node.nameRu.replace(/\(.*\)/, '') : node.nameEn.replace(/\(.*\)/, '')}
                 </span>
@@ -434,6 +505,85 @@ export default function NodeCard({
           </div>
         )}
 
+        {/* TAB 4: MATERIALS & RESEARCH (МАТЕРИАЛЫ) */}
+        {activeTab === 'materials' && (
+          <div className="flex flex-col gap-4 animate-fade-in pb-4">
+            <h4 className="text-[10px] font-mono tracking-widest text-[#DFB757] uppercase">
+              {language === 'ru' ? 'НАУЧНЫЕ ПУБЛИКАЦИИ И СТАТЬИ:' : 'RESEARCH DIGESTS & ARTICLES:'}
+            </h4>
+
+            <div className="space-y-3">
+              {node.articles?.map((art) => (
+                <div key={art.id} className="p-3.5 bg-white/5 rounded-xl border border-white/5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[9px] uppercase tracking-wide">
+                      {art.type}
+                    </span>
+                    {art.year && (
+                      <span className="text-[9px] text-gray-500 font-mono">{art.year} г.</span>
+                    )}
+                  </div>
+
+                  <h5 className="font-sans font-bold text-xs text-white leading-snug">
+                    {language === 'ru' ? art.titleRu : art.titleEn}
+                  </h5>
+
+                  <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
+                    {language === 'ru' ? art.summaryRu : art.summaryEn}
+                  </p>
+
+                  <div className="flex items-center justify-between text-[10px] font-mono text-gray-500 border-t border-white/5 pt-2 mt-1">
+                    <span>{art.sourceTitle || 'Database index'}</span>
+                    {art.sourceUrl && (
+                      <a 
+                        href={art.sourceUrl} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-indigo-400 hover:text-white hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <FileText className="w-3 h-3" />
+                        {language === 'ru' ? 'Источник' : 'Source'}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {(!node.articles || node.articles.length === 0) && (
+                <p className="text-xs text-gray-500 font-mono italic">
+                  {language === 'ru' ? 'Научных статей пока не занесено.' : 'No scientific publications categorized.'}
+                </p>
+              )}
+            </div>
+
+            {/* Simulated audio guide association */}
+            {matchedAudios.length > 0 && (
+              <div className="mt-4 border-t border-white/5 pt-4 space-y-2">
+                <h4 className="text-[10px] font-mono tracking-widest text-indigo-400 uppercase">
+                  {language === 'ru' ? 'СВЯЗАННЫЕ АУДИОМАТЕРИАЛЫ:' : 'RELEVANT AUDIO LECTURES:'}
+                </h4>
+                {matchedAudios.map(audio => (
+                  <div key={audio.id} className="p-3 bg-[#0C1221]/80 rounded-xl border border-white/5 flex items-center justify-between gap-3">
+                    <div className="truncate text-xs">
+                      <p className="font-semibold text-white truncate">{language === 'ru' ? audio.titleRu : audio.titleEn}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{language === 'ru' ? audio.authorRu : audio.authorEn}</p>
+                    </div>
+                    {onPlayAudio && (
+                      <button 
+                        onClick={() => onPlayAudio(node.id)}
+                        className="px-2.5 py-1 text-[10px] font-bold text-white bg-indigo-500/20 hover:bg-indigo-500 border border-indigo-500/40 rounded-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Play className="w-2.5 h-2.5 fill-current" />
+                        {language === 'ru' ? 'СТАРТ' : 'LISTEN'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* FIXED action panels always visible at bottom */}
@@ -442,7 +592,7 @@ export default function NodeCard({
         {/* Toggle dynamic connect modal form */}
         {isConnectingMode && (
           <form onSubmit={handleConnectSubmit} className="bg-white/5 border border-white/10 p-3 rounded-xl flex flex-col gap-2 text-xs">
-            <span className="text-[10px] font-mono text-[#DFB757] uppercase">
+            <span className="text-[10px] font-mono text-[#DFB757] uppercase block">
               {language === 'ru' ? 'СОБРАТЬ НОВОЕ РЕБРО (УСТАНОВИТЬ СВЯЗЬ):' : 'ESTABLISH NEW SOMATIC CONNECTOR EMBRYO:'}
             </span>
             <div className="flex gap-2">
@@ -464,7 +614,7 @@ export default function NodeCard({
               </select>
               <button 
                 type="submit" 
-                className="px-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white font-bold transition-all active:scale-95"
+                className="px-3 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white font-bold transition-all active:scale-95 cursor-pointer"
               >
                 {language === 'ru' ? 'ОК' : 'Connect'}
               </button>
@@ -474,20 +624,29 @@ export default function NodeCard({
 
         {/* Primary Interactive Somatic Command Pad (♦ Резонирую • ⟷ Связываю • ↗ Несу дальше) */}
         <div className="grid grid-cols-3 gap-2 text-xs">
-          {/* Action 1: Resonate */}
-          <button
-            onClick={handleResonateClick}
-            className={`py-3 px-2 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
-              hasResonated 
-                ? 'bg-rose-500/20 border-rose-500/50 text-rose-400' 
-                : 'bg-white/5 border-white/5 hover:border-rose-500/30 text-gray-300 hover:text-white'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${hasResonated ? 'fill-current animate-ping scale-110' : 'text-rose-400'}`} />
-            <span className="font-sans font-bold tracking-tight text-[10px]">
-              {hasResonated ? (language === 'ru' ? 'РЕЗОНАНС +1!' : 'RESONATED!') : (language === 'ru' ? '♦ РЕЗОНИРУЮ' : '♦ RESONATE')}
-            </span>
-          </button>
+          {/* Action 1: Resonate (Disabled placeholder if historical atlas) */}
+          {node.world !== 'atlas' ? (
+            <button
+              onClick={handleResonateClick}
+              className={`py-3 px-2 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
+                hasResonated 
+                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-400' 
+                  : 'bg-white/5 border-white/5 hover:border-rose-500/30 text-gray-300 hover:text-white'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${hasResonated ? 'fill-current animate-ping scale-110' : 'text-rose-400'}`} />
+              <span className="font-sans font-bold tracking-tight text-[10px]">
+                {hasResonated ? (language === 'ru' ? 'РЕЗОНАНС +1!' : 'RESONATED!') : (language === 'ru' ? '♦ РЕЗОНИРУЮ' : '♦ RESONATE')}
+              </span>
+            </button>
+          ) : (
+            <div className="py-3 px-2 rounded-xl border border-white/5 bg-white/5 opacity-40 flex flex-col items-center justify-center gap-1.5 select-none cursor-not-allowed">
+              <Heart className="w-4 h-4 text-rose-500/40" />
+              <span className="font-sans font-bold text-gray-500 text-[10px] text-center">
+                {language === 'ru' ? 'В АТЛАСЕ' : 'IN ATLAS'}
+              </span>
+            </div>
+          )}
 
           {/* Action 2: Connect */}
           <button
@@ -504,24 +663,33 @@ export default function NodeCard({
             </span>
           </button>
 
-          {/* Action 3: Carry Further / Pocket it */}
-          <button
-            onClick={handleCarryClick}
-            className={`py-3 px-2 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
-              hasCarried 
-                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' 
-                : 'bg-white/5 border-white/5 hover:border-emerald-500/30 text-gray-300 hover:text-white'
-            }`}
-          >
-            {hasCarried ? (
-              <Check className="w-4 h-4 text-emerald-400 animate-bounce" />
-            ) : (
-              <Share2 className="w-4 h-4 text-emerald-400" />
-            )}
-            <span className="font-sans font-bold tracking-tight text-[10px]">
-              {hasCarried ? (language === 'ru' ? 'ПРИНЯТО В Я' : 'POCKETED') : (language === 'ru' ? '↗ НЕСУ ДАЛЬШЕ' : '↗ CARRY OVER')}
-            </span>
-          </button>
+          {/* Action 3: Carry Further / Pocket it (Disabled placeholder if historical atlas) */}
+          {node.world !== 'atlas' ? (
+            <button
+              onClick={handleCarryClick}
+              className={`py-3 px-2 rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border active:scale-95 cursor-pointer ${
+                hasCarried 
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' 
+                  : 'bg-white/5 border-white/5 hover:border-emerald-500/30 text-gray-300 hover:text-white'
+              }`}
+            >
+              {hasCarried ? (
+                <Check className="w-4 h-4 text-emerald-400 animate-bounce" />
+              ) : (
+                <Share2 className="w-4 h-4 text-emerald-400" />
+              )}
+              <span className="font-sans font-bold tracking-tight text-[10px]">
+                {hasCarried ? (language === 'ru' ? 'ПРИНЯТО В Я' : 'POCKETED') : (language === 'ru' ? '↗ НЕСУ ДАЛЬШЕ' : '↗ CARRY OVER')}
+              </span>
+            </button>
+          ) : (
+            <div className="py-3 px-2 rounded-xl border border-white/5 bg-white/5 opacity-40 flex flex-col items-center justify-center gap-1.5 select-none cursor-not-allowed">
+              <Check className="w-4 h-4 text-emerald-500/40" />
+              <span className="font-sans font-bold text-gray-500 text-[10px] text-center">
+                {language === 'ru' ? 'СОХРАНЕНО' : 'SAVED'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Embedded quick Audio Player Deck (if play support) */}
@@ -536,7 +704,7 @@ export default function NodeCard({
                   {language === 'ru' ? 'Лекционные материалы по ноде' : 'Archive audio lecture materials'}
                 </p>
                 <p className="text-[10px] text-gray-500">
-                  {language === 'ru' ? 'Доступно 45 минут разбора' : 'Stream high fidelity somatic analysis'}
+                  {language === 'ru' ? 'Доступно лекционное сопровождение' : 'Stream high fidelity somatic analysis'}
                 </p>
               </div>
             </div>

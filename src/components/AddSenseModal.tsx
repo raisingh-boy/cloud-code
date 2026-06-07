@@ -10,7 +10,7 @@ interface AddSenseModalProps {
   onClose: () => void;
   allNodes: SomaticNode[];
   language: 'ru' | 'en';
-  onAddObservation: (obs: { name: string; text: string; domain: Domain; linkToId?: string }) => void;
+  onAddObservation: (obs: { name: string; text: string; domain: Domain; linkToId?: string; isPrivate?: boolean }) => void;
   onAddConnection: (conn: { sourceId: string; targetId: string; text: string }) => void;
   onAddAgendaQuestion: (q: { text: string; domains: Domain[] }) => void;
   onAddGlobalStory: (story: { nodeId: string; text: string }) => void;
@@ -46,6 +46,7 @@ export default function AddSenseModal({
   const [obsText, setObsText] = useState('');
   const [obsDomain, setObsDomain] = useState<Domain>('body');
   const [obsTargetNodeId, setObsTargetNodeId] = useState('');
+  const [isPrivateObs, setIsPrivateObs] = useState(false);
 
   // Form 2: Connection
   const [connSourceId, setConnSourceId] = useState('');
@@ -94,8 +95,10 @@ export default function AddSenseModal({
         name: obsName,
         text: obsText,
         domain: obsDomain,
-        linkToId: obsTargetNodeId || undefined
+        linkToId: obsTargetNodeId || undefined,
+        isPrivate: isPrivateObs
       });
+      setIsPrivateObs(false);
     });
   };
 
@@ -320,6 +323,20 @@ export default function AddSenseModal({
                     ))}
                   </select>
                 </div>
+
+                <label className="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPrivateObs}
+                    onChange={() => setIsPrivateObs(!isPrivateObs)}
+                    className="accent-[#DFB757] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-300">
+                    {language === 'ru'
+                      ? '🔒 Приватное — только в моём мире, не в Поле'
+                      : '🔒 Private — only in my universe, not in Field'}
+                  </span>
+                </label>
 
                 <button
                   type="submit"

@@ -1,506 +1,431 @@
-import { SomaticNode, SomaticLink, AudioItem, AgendaQuestion, ActivityNotification } from '../types';
+import { SomaticNode, SomaticLink, AudioItem, AgendaQuestion, ActivityNotification, Domain, World, NodeStatus, NodeType, Story, Article } from '../types';
+import { NODES_PART1 } from './nodes-part1';
+import { NODES_PART2 } from './nodes-part2';
+import { NODES_PART3 } from './nodes-part3';
+import { EDGES_PART1 } from './edges-part1';
+import { EDGES_PART2 } from './edges-part2';
+import { STORIES } from './stories';
 
-export const INITIAL_NODES: SomaticNode[] = [
-  // --- ATLAS: BODY/SOMATICS ---
-  {
-    id: 'soma-hanna',
-    nameRu: 'Соматика (Томас Ханна)',
-    nameEn: 'Somatics (Thomas Hanna)',
-    domain: 'body',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 340,
-    authorRu: 'Томас Ханна',
-    authorEn: 'Thomas Hanna',
-    epochRu: '1970-е',
-    epochEn: '1970s',
-    descriptionRu: 'Направление работы с телом, сфокусированное на внутреннем ощущении движения («соме»), в отличие от взгляда со стороны на тело как на объект. Ханна ввёл понятие сенсомоторной амнезии — потери способности контролировать мышцы из-за стресса и травм.',
-    descriptionEn: 'The field of mind-body integration focusing on the first-person experience of the body ("soma") as opposed to looking at it from the third-person as an object. Hanna introduced "sensory-motor amnesia" — the habituated state of muscle tension caused by stress or trauma.',
-    stories: [
-      {
-        id: 'story-hanna-1',
-        author: 'SomaticPhilosopher',
-        textRu: 'Томас Ханна и Грегори Бейтсон никогда не цитировали друг друга напрямую. Но оба в 1960-х годах пришли к одной фундаментальной мысли: граница тела человека — это граница его восприятия.',
-        textEn: 'Thomas Hanna and Gregory Bateson never cited each other directly. However, both concluded in the 1960s that the physical boundary of the body is inherently the boundary of our sensory perception.',
-        rating: 45
-      }
-    ]
-  },
-  {
-    id: 'kinesthesia',
-    nameRu: 'Кинестезия',
-    nameEn: 'Kinesthesia',
-    domain: 'body',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 210,
-    authorRu: 'Аристотель / Ч. Шеррингтон',
-    authorEn: 'Aristotle / C. Sherrington',
-    epochRu: '1906',
-    epochEn: '1906',
-    descriptionRu: 'Ощущение положения, усилия и движения частей тела относительно друг друга. Это «шестое чувство», позволяющее нам совершать точные грациозные движения с закрытыми глазами и уступать внешней силе.',
-    descriptionEn: 'The awareness of the position, effort, and movement of body parts relative to each other. It is our "sixth sense" that allows us to perform precise, graceful actions with closed eyes and yield to external forces.',
-    stories: []
-  },
-  {
-    id: 'proprioception',
-    nameRu: 'Проприоцепция',
-    nameEn: 'Proprioception',
-    domain: 'body',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 285,
-    authorRu: 'Чарльз Шеррингтон',
-    authorEn: 'Charles Sherrington',
-    epochRu: '1906',
-    epochEn: '1906',
-    descriptionRu: 'Сигнализация от рецепторов сухожилий, мышц и суставных капсул в нервную систему. Физиологический фундамент любой соматической интеграции и телесной автономии.',
-    descriptionEn: 'The nervous system feedback from receptors in muscles, tendons, and joint capsules. It is the physiological foundation of any somatic integration and body autonomy.',
-    stories: []
-  },
-  {
-    id: 'body-memory',
-    nameRu: 'Телесная память',
-    nameEn: 'Body Memory',
-    domain: 'body',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 195,
-    authorRu: 'Эдвард Кейси',
-    authorEn: 'Edward Casey',
-    epochRu: '1980-е',
-    epochEn: '1980s',
-    descriptionRu: 'Феномен хранения эмоционального опыта, паттернов реакций и травм в мышечно-фасциальной структуре. Тело помнит то, что разум предпочёл вытеснить или изолировать.',
-    descriptionEn: 'The phenomenon of psychological and physical experiences, traumas, and movement habits storing themselves in the fascial and muscular structures of the body. The body remembers what the intellect prefers to suppress.',
-    stories: []
-  },
+// Combine node arrays
+const rawNodes = [...NODES_PART1, ...NODES_PART2, ...NODES_PART3];
 
-  // --- ATLAS: PHILOSOPHY/MIND ---
-  {
-    id: 'pattern-bateson',
-    nameRu: 'Паттерн (Грегори Бейтсон)',
-    nameEn: 'Pattern (Gregory Bateson)',
-    domain: 'philosophy',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 390,
-    authorRu: 'Грегори Бейтсон',
-    authorEn: 'Gregory Bateson',
-    epochRu: '1972',
-    epochEn: '1972',
-    descriptionRu: '«Паттерн — это то, что связывает». Бейтсон рассматривал разум не внутри головы, а как экологическую систему связей и отношений между существами, средой и обратной связью.',
-    descriptionEn: '"The pattern is the thing that connects." Bateson argued that mind is not contained inside the skull, but is an ecological system of connections and flows between beings, constraints, and environments.',
-    stories: [
-      {
-        id: 'story-bateson-1',
-        author: 'AestheticMinds',
-        textRu: 'Бейтсон любил задавать вопрос своим студентам: «Каков паттерн, объединяющий краба с орхидеей, а орхидею с примулой, а примулу со мной?» Он искал эстетическое единство мира там, где обычные люди видят лишь разные био-виды.',
-        textEn: 'Bateson famously asked: "What is the pattern which connects the crab to the orchid and the orchid to the primrose and all four of them to me?" He sought the aesthetic unity of the world where others saw only disjoint categories.',
-        rating: 52
-      }
-    ]
-  },
-  {
-    id: 'phenomenology-body',
-    nameRu: 'Феноменология тела',
-    nameEn: 'Phenomenology of the Body',
-    domain: 'philosophy',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 310,
-    authorRu: 'Морис Мерло-Понти',
-    authorEn: 'Maurice Merlo-Ponty',
-    epochRu: '1945',
-    epochEn: '1945',
-    descriptionRu: 'Философская концепция, согласно которой наше тело — не объект в пространстве, а сама призма, через которую мы вообще способны воспринимать и понимать этот мир (взаимоотношение "Le Corps propre").',
-    descriptionEn: "Philosophical concept stating that the body is not just an object in space, but the very lens through which we interact, experience, and inhabit reality ('Le Corps propre').",
-    stories: [
-      {
-        id: 'story-merlo-1',
-        author: 'PhenomenonGuy',
-        textRu: 'Моше Фельденкрайз разрабатывал свои практические упражнения параллельно с философскими эссе Мерло-Понти в 1940-х годах. Удивительно, но они так и не встретились при жизни, хотя говорили об абсолютно одинаковом ощущении тела в мире.',
-        textEn: 'Moshe Feldenkrais formulated functional movement lessons in parallel with Merlo-Ponty writing text on perception in the 1940s. Astonishingly, they never met, yet they spoke computed equivalents of embodiment.',
-        rating: 38
-      }
-    ]
-  },
-  {
-    id: 'enactivism',
-    nameRu: 'Энактивизм',
-    nameEn: 'Enactivism',
-    domain: 'philosophy',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 245,
-    authorRu: 'Франсиско Варела',
-    authorEn: 'Francisco Varela',
-    epochRu: '1991',
-    epochEn: '1991',
-    descriptionRu: 'Теория познания, в которой сознание порождается в процессе непрерывного моторного и сенсорного взаимодействия системы со своей средой. Познание — это действие, а не пассивное отражение.',
-    descriptionEn: 'The cognitive science theory asserting that cognition is not a representation of a pre-given world, but an active bringing-forth of a world through structural coupling and actions.',
-    stories: []
-  },
+// Combine edge arrays
+const rawEdges = [...EDGES_PART1, ...EDGES_PART2];
 
-  // --- ATLAS: MOVEMENT/PRACTICE ---
-  {
-    id: 'contact-improvisation',
-    nameRu: 'Контактная импровизация',
-    nameEn: 'Contact Improvisation',
-    domain: 'movement',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 320,
-    authorRu: 'Стив Пэкстон',
-    authorEn: 'Steve Paxton',
-    epochRu: '1972',
-    epochEn: '1972',
-    descriptionRu: 'Танцевальная форма, основанная на поиске путей движения вокруг общего центра масс двух людей. Внимание направлено на непрерывное деление веса, скольжение, перекаты и контактную точку в пространстве.',
-    descriptionEn: 'A dance form focused on finding paths of cooperative movement around a moving center of gravity of two practitioners. It emphasizes sharing weight, rolling points of contact, and physical listening.',
-    stories: []
-  },
-  {
-    id: 'floorwork',
-    nameRu: 'Флорворк',
-    nameEn: 'Floorwork',
-    domain: 'movement',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 180,
-    authorRu: 'Современный танец',
-    authorEn: 'Modern Dance',
-    epochRu: 'XX век',
-    epochEn: '20th Century',
-    descriptionRu: 'Техника движения на полу, находящаяся на стыке танца, акробатики и соматики. Основана на эффективном распределении веса и использовании силы земного притяжения и инерции для плавных переходов.',
-    descriptionEn: 'Movement techniques using the floor, blurring the lines between dance, acrobatics, and somatics. It emphasizes distributing weight and using gravity and momentum over muscular friction.',
-    stories: []
-  },
-  {
-    id: 'yield-somatic',
-    nameRu: 'Yield (Уступание опоре)',
-    nameEn: 'Yield (yielding)',
-    domain: 'movement',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 230,
-    authorRu: 'Бонни Бейнбридж Коэн',
-    authorEn: 'Bonnie Bainbridge Cohen',
-    epochRu: '1980-е',
-    epochEn: '1980s',
-    descriptionRu: 'Базовое соматическое действие: уступание веса опорной поверхности. Это не пассивное обмякание (collapse) и не преодоление (push), а активное доверие весу и принятие поддержки почвы.',
-    descriptionEn: 'A fundamental somatic developmental movement: giving weight to a supportive structure. It is neither passive collapsing nor muscular pushing, but active relationship with support and gravity.',
-    stories: []
-  },
+// Helper to map raw groups into typed Domains
+const mapGroupToDomain = (group: string): Domain => {
+  switch (group) {
+    case 'root':
+    case 'intersection':
+      return 'hybrid';
+    case 'dance':
+    case 'performance':
+    case 'arts':
+      return 'movement';
+    case 'somatic':
+      return 'body';
+    case 'psychology':
+    case 'psychedelic':
+    case 'concept':
+      return 'philosophy';
+    case 'linguistics':
+      return 'cognition';
+    case 'ai':
+    case 'tech':
+    case 'science':
+    default:
+      return 'science';
+  }
+};
 
-  // --- ATLAS: SCIENCE/PHYSICS ---
-  {
-    id: 'center-of-mass',
-    nameRu: 'Центр масс',
-    nameEn: 'Center of Mass',
-    domain: 'science',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 260,
-    authorRu: 'И. Ньютон / Архимед',
-    authorEn: 'I. Newton / Archimedes',
-    epochRu: 'Античность',
-    epochEn: 'Antiquity',
-    descriptionRu: 'Уникальная геометрическая точка системы, движение которой характеризует перемещение всей этой системы как целого. В танце и боевых искусствах — ключевой регулятор равновесия и вращений.',
-    descriptionEn: 'The unique geometric point of a system where its total distributed mass is balanced. In dance and martial arts, it is the master dial of equilibrium, rotation, and falling vectors.',
-    stories: []
-  },
-  {
-    id: 'resonance-physics',
-    nameRu: 'Резонанс',
-    nameEn: 'Resonance',
-    domain: 'science',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 295,
-    authorRu: 'Г. Галилей',
-    authorEn: 'G. Galilei',
-    epochRu: '1602',
-    epochEn: '1602',
-    descriptionRu: 'Явление резкого возрастания амплитуды колебаний системы при совпадении внешней частоты с внутренней гармоникой. В Seamless Universe это метафора глубокого созвучия идей.',
-    descriptionEn: 'The physical state where a system vibrates with maximum amplitude at specific natural frequencies. Used metaphorically to represent the immediate intellectual/intuitive connection between ideas.',
-    stories: []
-  },
+const mapGroupToNodeType = (id: string, group: string): NodeType => {
+  if (id === 'root') return 'concept';
+  if (group === 'somatic') return 'practice';
+  if (group === 'dance' || group === 'performance' || group === 'arts') return 'event';
+  
+  // Check for historical individuals
+  const individuals = ['bateson', 'hanna', 'feldenkrais', 'alexander', 'rolf', 'cohen', 'paxton', 'graham', 'cunningham', 'chomsky', 'halprin', 'sheets-johnstone', 'forsythe', 'pauli', 'jung', 'bohm', 'varela'];
+  if (individuals.some(name => id.toLowerCase().includes(name))) return 'person';
+  
+  if (group === 'movement' || id === 'yield') return 'movement';
+  if (group === 'ai' || group === 'tech' || group === 'science' || group === 'linguistics') return 'concept';
+  return 'concept';
+};
 
-  // --- ATLAS: LANGUAGE/COGNITION ---
-  {
-    id: 'embodied-metaphor',
-    nameRu: 'Телесная метафора',
-    nameEn: 'Embodied Metaphor',
-    domain: 'cognition',
-    world: 'atlas',
-    status: 'atlas',
-    resonances: 275,
-    authorRu: 'Джордж Лакофф',
-    authorEn: 'George Lakoff',
-    epochRu: '1980',
-    epochEn: '1980',
-    descriptionRu: 'Теория, доказывающая, что абстрактные языковые концепты строятся на базе нашей физической соматики. Например, «тёплое отношение» (соматика тепла) или «высокий статус» (опора по вертикали).',
-    descriptionEn: 'Cognitive linguistic theory revealing that conceptual metaphors are built directly on our physical somatic experiences (e.g., "warm relationship" based on bodily warmth, "climbing high" based on somatic verticality).',
-    stories: []
-  },
+const mapIdToLevel = (id: string): 'macro' | 'meso' | 'micro' => {
+  const macros = new Set([
+     'root', 'somatics', 'modern_dance', 'contact_improv', 'feldenkrais', 
+     'alexander', 'cybernetics', 'neuroscience', 'philosophy', 'cognitive_sci', 
+     'artificial_intelligence', 'linguistics', 'body_mind', 'rolfing', 
+     'psychotherapy', 'psychedelic', 'performance_art'
+  ]);
+  const micros = new Set([
+     'yield', 'point_of_support', 'shared_weight', 'rolling_point_of_contact', 
+     'spiral_fall', 'headstand_to_roll', 'spinal_movement', 'breath'
+  ]);
+  if (macros.has(id)) return 'macro';
+  if (micros.has(id)) return 'micro';
+  return 'meso';
+};
 
-  // --- FIELD (ПОЛЕ) NODES: LIVE EVOLVING ONES ---
+const getArticlesForNode = (nodeId: string): Article[] => {
+  const list: Article[] = [];
+  if (nodeId === 'root') {
+    list.push({
+      id: 'art-root-1',
+      nodeId: 'root',
+      titleRu: 'Соматика: Новые рубежи сознания и тела',
+      titleEn: 'Somatics: New Frontiers of Somatic Movement',
+      summaryRu: 'Классическое исследование Томаса Ханны о возникновении термина «соматика» и преодолении напряжения через мышечный перезапуск.',
+      summaryEn: 'Thomas Hanna’s seminal exploration of somatic patterns and mind-body coordination.',
+      sourceUrl: 'https://somatics.org/hanna-papers',
+      sourceTitle: 'Somatic Journal',
+      year: 1986,
+      type: 'research'
+    });
+  }
+  if (nodeId === 'contact_improv') {
+    list.push({
+      id: 'art-ci-1',
+      nodeId: 'contact_improv',
+      titleRu: 'Магниевый пик: рождение импровизации вздоха',
+      titleEn: 'Magnesium Peak: Emergence of Contact Improvisation',
+      summaryRu: 'Исторический разбор перформанса Magnesium в Оберлине в 1972 году, заложившего учение о физическом риске и падении.',
+      summaryEn: 'An archival analysis of Steve Paxton’s Oberlin show that became the cradle of Contact Improvisation.',
+      sourceUrl: 'https://contactquarterly.com',
+      sourceTitle: 'Contact Quarterly',
+      year: 1972,
+      type: 'article'
+    });
+  }
+  
+  // general placeholder article if none:
+  if (list.length === 0) {
+    list.push({
+      id: `art-gen-${nodeId}`,
+      nodeId: nodeId,
+      titleRu: `Исследование междисциплинарности: ${nodeId}`,
+      titleEn: `Transdisciplinary review: ${nodeId}`,
+      summaryRu: `Анализ связей узла ${nodeId} в контексте соматической интеграции учения о движении и феноменологии познания.`,
+      summaryEn: `An in-depth contextual analysis of the node ${nodeId} within cognitive dynamics and performance pedagogy.`,
+      sourceTitle: 'Unified Somatic Database Review',
+      year: 2024,
+      type: 'research'
+    });
+  }
+  return list;
+};
+
+// Build the fully populated typed SomaticNode array of Atlas nodes
+const ATLAS_NODES: SomaticNode[] = rawNodes.map((n: any) => {
+  const domain = mapGroupToDomain(n.group);
+  const type = mapGroupToNodeType(n.id, n.group);
+  const level = mapIdToLevel(n.id);
+  
+  // All pre-loaded nodes are part of the verified Atlas system, thus highly resonant
+  const resonances = 340;
+  const status: NodeStatus = 'atlas';
+
+  // Gather figures/years for authors and epochs
+  const figuresStr = Array.isArray(n.figures) ? n.figures.join(', ') : (n.figures || '');
+  const authorRu = figuresStr || undefined;
+  const authorEn = figuresStr || undefined;
+  const epochStr = n.years !== '-' ? n.years : undefined;
+  const epochRu = epochStr;
+  const epochEn = epochStr;
+
+  const articles = getArticlesForNode(n.id);
+
+  return {
+    id: n.id,
+    type,
+    level,
+    nameEn: n.label || n.id,
+    nameRu: n.labelRu || n.descRu ? n.label || n.id : (n.label || n.id), // fallback gracefully
+    domain,
+    world: 'atlas',
+    status,
+    resonances,
+    descriptionEn: n.desc || '',
+    descriptionRu: n.descRu || n.desc || '',
+    authorRu,
+    authorEn,
+    epochRu,
+    epochEn,
+    addedBy: undefined,
+    connections: 25,
+    carries: 12,
+    score: resonances,
+    articles
+  };
+});
+
+// Configure beautifully seeded Field observations
+export const FIELD_SEED_NODES: SomaticNode[] = [
   {
-    id: 'field-gaze',
-    nameRu: 'Периферийное внимание взгляда',
-    nameEn: 'Peripheral Gaze / Attention',
-    domain: 'philosophy',
-    world: 'field',
-    status: 'rooted', // 100+ resonances
-    resonances: 112,
-    addedBy: 'ElenaD',
-    descriptionRu: 'Состояние распределённого зрительного внимания, когда мы воспринимаем не отдельные сфокусированные детали, а контекст и паттерн движения среды. Снижает уровень кортизола и расширяет осознание.',
-    descriptionEn: 'The state of distributed visual attention focus where we track environmental movement and global rhythm instead of high-detail items. Lower stress triggers and opens somatic spaciousness.',
-    stories: []
-  },
-  {
-    id: 'field-support',
-    nameRu: 'Поддержка как диалог',
-    nameEn: 'Support as Dialogue',
-    domain: 'movement',
-    world: 'field',
-    status: 'alive', // 50-99 resonances
-    resonances: 78,
-    addedBy: 'DancerA',
-    descriptionRu: 'Поддержка — это не просто выдерживание веса другого, а постоянная уступчивость, калибровка жесткости мышц и тонуса. Двусторонний канал передачи соматической информации.',
-    descriptionEn: 'Physical support in duets is not dead stiffness or raw carrying, but active compliance, continuous tension tuning, and feedback looping. A reciprocal somatic transmission channel.',
-    stories: []
-  },
-  {
-    id: 'field-somatic-city',
-    nameRu: 'Соматический урбанизм',
-    nameEn: 'Somatic Urbanism',
-    domain: 'philosophy',
-    world: 'field',
-    status: 'sprout', // 10-49 resonances
-    resonances: 34,
-    addedBy: 'Sasha_K',
-    descriptionRu: 'Изучение города не по картам дорог, а по мышечному напряжению жителей. То, как архитектура заставляет нас сжиматься на тротуаре или расправлять плечи перед простором.',
-    descriptionEn: 'The study of cities through metropolitan muscular tension rather than asphalt roadmaps. Exploring how hard spatial geometry commands our bodies to contract or widen.',
-    stories: []
-  },
-  {
-    id: 'field-gravity-trust',
-    nameRu: 'Доверие гравитации',
-    nameEn: 'Gravity Trust Loop',
-    domain: 'body',
-    world: 'field',
-    status: 'seed', // 1-9 resonances
-    resonances: 6,
-    addedBy: 'PavelMove',
-    descriptionRu: 'Психологическое отпускание контроля в движении через осознавание того, что гравитация — это единственная постоянная сила, которая никогда тебя не покинет и никуда не исчезнет.',
-    descriptionEn: 'The psychological relief of muscular resistance by realizing gravity is the single permanent force that is absolutely continuous, reliable, and unconditional.',
-    stories: []
-  },
-  {
-    id: 'field-empty-center',
-    nameRu: 'Пустота в центре масс',
-    nameEn: 'Void in the Center of Mass',
-    domain: 'science',
-    world: 'field',
-    status: 'alive',
-    resonances: 58,
-    addedBy: 'ZenMechanics',
-    descriptionRu: 'Перемещение центра равновесия за пределы очертания физического тела во время изгибов спины или прыжков. Область, где физическая устойчивость вращается вокруг пустого воздуха.',
-    descriptionEn: 'Moving the center of gravity far outside the solid physical bones during arching backs or dynamic slides. The zone where system balance pivots around open air.',
-    stories: []
-  },
-  {
-    id: 'field-rhythm-bio',
-    nameRu: 'Биолюминесцентный биоритм',
-    nameEn: 'Bioluminescent Biorhythm',
-    domain: 'science',
-    world: 'field',
-    status: 'seed',
-    resonances: 8,
-    addedBy: 'CoralWatcher',
-    descriptionRu: 'Исследование ритма синхронного мерцания организмов как соматического проявления коллективного бессознательного ощущения времени.',
-    descriptionEn: 'Exploration of synchronous biological flashing in aquatic nodes as a manifestation of collective subconscious somatic perception of temporal flows.',
-    stories: []
-  },
-  {
-    id: 'field-breath-space',
-    nameRu: 'Многомерное дыхание легких',
-    nameEn: 'Multidimensional Breath Space',
+    id: 'field-seed-1',
+    type: 'observation',
+    level: 'meso',
+    nameRu: 'Страх живёт в пояснице',
+    nameEn: 'Fear lives in the lower back',
     domain: 'body',
     world: 'field',
     status: 'sprout',
-    resonances: 42,
-    addedBy: 'PranaFlow',
-    descriptionRu: 'Направление дыхания не только в живот, а в 3D объем спины, лопаток и тазового дна. Создаёт новые динамические рычаги внутри костей.',
-    descriptionEn: 'Directing the respiratory waves not only to the belly, but into the deep 3D volume of the back, ribs, and pelvic floor. Creating support levers inside the skeleton.',
-    stories: []
+    resonances: 23,
+    connections: 3,
+    carries: 5,
+    score: 38,
+    descriptionRu: 'Наблюдение практикующего: тревога и страх всегда находят своё место именно в поясничном отделе. Проверено на 40+ студентах.',
+    descriptionEn: 'Practitioner observation: anxiety and fear consistently locate themselves in the lumbar region.',
+    addedBy: 'Maya_CI',
+    lastActiveAt: Date.now() - 86400000 * 2,
+    articles: [
+      {
+        id: 'art-seed-1',
+        nodeId: 'field-seed-1',
+        titleRu: 'Пояснично-подвздошная мышка и стресс',
+        titleEn: 'The Psoas Muscle and Emotional Stress',
+        summaryRu: 'Клинический разбор физиологии страха и панциря в области поясницы.',
+        summaryEn: 'Review of the Psoas muscle as the primary seat of physical fight-or-flight responses.',
+        year: 2023,
+        type: 'research'
+      }
+    ]
+  },
+  {
+    id: 'field-seed-2',
+    type: 'observation',
+    level: 'meso',
+    nameRu: 'Контакт как разговор без слов',
+    nameEn: 'Contact as wordless conversation',
+    domain: 'movement',
+    world: 'field',
+    status: 'alive',
+    resonances: 67,
+    connections: 8,
+    carries: 12,
+    score: 79,
+    descriptionRu: 'В CI каждое касание — это вопрос и ответ одновременно. Тело знает язык который ум ещё не выучил.',
+    descriptionEn: 'In CI every touch is simultaneously question and answer. The body knows a language the mind has not yet learned.',
+    addedBy: 'Arjun_Move',
+    lastActiveAt: Date.now() - 86400000,
+    articles: [
+      {
+        id: 'art-seed-2',
+        nodeId: 'field-seed-2',
+        titleRu: 'Кинестетическая эмпатия в дуэтной импровизации',
+        titleEn: 'Kinesthetic Empathy in Duet Interactions',
+        summaryRu: 'Зеркальные нейроны и невербальная синхронизация партнеров в реальном времени.',
+        summaryEn: 'Mirror neurons and real-time physical synchrony in kinetic systems.',
+        year: 2021,
+        type: 'research'
+      }
+    ]
+  },
+  {
+    id: 'field-seed-3',
+    type: 'observation',
+    level: 'meso',
+    nameRu: 'Пустота в движении как решение',
+    nameEn: 'Emptiness in movement as solution',
+    domain: 'philosophy',
+    world: 'field',
+    status: 'seed',
+    resonances: 7,
+    connections: 1,
+    carries: 2,
+    score: 8,
+    descriptionRu: 'Когда перестаёшь искать следующее движение — оно приходит само. Пустота не отсутствие, а присутствие другого рода.',
+    descriptionEn: 'When you stop searching for the next movement — it arrives by itself.',
+    addedBy: 'Li_Wei',
+    lastActiveAt: Date.now() - 86400000 * 5,
+    articles: [
+      {
+        id: 'art-seed-3',
+        nodeId: 'field-seed-3',
+        titleRu: 'Даосское деяние и соматическое уступание',
+        titleEn: 'Daoist non-action and somatic yielding',
+        summaryRu: 'Философия у-вэй в практике современного танца и перформанса.',
+        summaryEn: 'The philosophy of Wu-Wei implemented in active dance release techniques.',
+        year: 2022,
+        type: 'book'
+      }
+    ]
+  },
+];
+
+// Initialize collective app nodes
+export const INITIAL_NODES: SomaticNode[] = [...ATLAS_NODES, ...FIELD_SEED_NODES];
+
+// Base links
+const base_links: SomaticLink[] = rawEdges.map((edge: any, index: number) => {
+  // Try to define a beautiful type
+  let type: 'conceptual' | 'historical' | 'practical' | 'resonance' | 'opposition' = 'practical';
+  if (edge[0] === 'root' || edge[1] === 'root') type = 'conceptual';
+  else if (edge[2]?.toLowerCase().includes('истори') || edge[2]?.toLowerCase().includes('основа') || edge[2]?.toLowerCase().includes('ученик')) {
+    type = 'historical';
+  } else if (edge[2]?.toLowerCase().includes('против') || edge[2]?.toLowerCase().includes('оппоз')) {
+    type = 'opposition';
   }
-];
 
-export const INITIAL_LINKS: SomaticLink[] = [
-  // Atlas connections
-  { id: 'lnk1', source: 'soma-hanna', target: 'kinesthesia', resonanceWeight: 4, activity: 5 },
-  { id: 'lnk2', source: 'kinesthesia', target: 'proprioception', resonanceWeight: 5, activity: 8 },
-  { id: 'lnk3', source: 'soma-hanna', target: 'body-memory', resonanceWeight: 3, activity: 4 },
-  { id: 'lnk4', source: 'phenomenology-body', target: 'soma-hanna', resonanceWeight: 5, activity: 6 },
-  { id: 'lnk5', source: 'pattern-bateson', target: 'phenomenology-body', resonanceWeight: 4, activity: 7 },
-  { id: 'lnk6', source: 'enactivism', target: 'pattern-bateson', resonanceWeight: 3, activity: 3 },
-  { id: 'lnk7', source: 'enactivism', target: 'phenomenology-body', resonanceWeight: 5, activity: 5 },
-  { id: 'lnk8', source: 'contact-improvisation', target: 'center-of-mass', resonanceWeight: 5, activity: 9 },
-  { id: 'lnk9', source: 'contact-improvisation', target: 'yield-somatic', resonanceWeight: 4, activity: 4 },
-  { id: 'lnk10', source: 'proprioception', target: 'yield-somatic', resonanceWeight: 3, activity: 2 },
-  { id: 'lnk11', source: 'contact-improvisation', target: 'floorwork', resonanceWeight: 4, activity: 6 },
-  { id: 'lnk12', source: 'floorwork', target: 'center-of-mass', resonanceWeight: 3, activity: 4 },
-  { id: 'lnk13', source: 'embodied-metaphor', target: 'phenomenology-body', resonanceWeight: 4, activity: 3 },
-  { id: 'lnk14', source: 'embodied-metaphor', target: 'body-memory', resonanceWeight: 3, activity: 2 },
+  return {
+    id: `lnk-${index}`,
+    source: edge[0],
+    target: edge[1],
+    type,
+    world: 'atlas',
+    labelRu: edge[2] || 'Направление смысловой связи',
+    labelEn: edge[0].toUpperCase() + ' connects to ' + edge[1].toUpperCase(),
+    resonanceWeight: 5,
+    activity: 4 + Math.floor(Math.random() * 6),
+    storyIds: [],
+    createdAt: Date.now() - 30 * 86400000
+  };
+});
 
-  // Field connections linking field to atlas
-  { id: 'lnk15', source: 'field-gaze', target: 'pattern-bateson', resonanceWeight: 4, activity: 7 },
-  { id: 'lnk16', source: 'field-support', target: 'contact-improvisation', resonanceWeight: 5, activity: 8 },
-  { id: 'lnk17', source: 'field-support', target: 'yield-somatic', resonanceWeight: 3, activity: 3 },
-  { id: 'lnk18', source: 'field-somatic-city', target: 'embodied-metaphor', resonanceWeight: 4, activity: 5 },
-  { id: 'lnk19', source: 'field-somatic-city', target: 'body-memory', resonanceWeight: 3, activity: 2 },
-  { id: 'lnk20', source: 'field-gravity-trust', target: 'yield-somatic', resonanceWeight: 5, activity: 4 },
-  { id: 'lnk21', source: 'field-empty-center', target: 'center-of-mass', resonanceWeight: 4, activity: 6 },
-  { id: 'lnk22', source: 'field-empty-center', target: 'floorwork', resonanceWeight: 3, activity: 3 },
-  { id: 'lnk23', source: 'field-breath-space', target: 'proprioception', resonanceWeight: 4, activity: 5 }
-];
+// Build ALL_STORIES and match storyIds directly on links
+export const ALL_STORIES: Story[] = STORIES.map((story: any) => {
+  // Try to find matching edge
+  const f1 = story.figure1 ? story.figure1.toLowerCase() : '';
+  const f2 = story.figure2 ? story.figure2.toLowerCase() : '';
 
+  let matchingLink = base_links.find(lnk => {
+    const s = lnk.source.toLowerCase();
+    const t = lnk.target.toLowerCase();
+    return (s.includes(f1) && t.includes(f2)) || (s.includes(f2) && t.includes(f1)) ||
+           (f1.includes(s) && f2.includes(t)) || (f1.includes(t) && f2.includes(s));
+  });
+
+  let edgeId = '';
+  if (matchingLink) {
+    edgeId = matchingLink.id;
+  } else {
+    // dynamically establish a historical field edge if story doesn't fit existing ones
+    // resolving f1 and f2 to actual nodes or defaulting to known concepts
+    const sourceNode = INITIAL_NODES.find(n => n.id.toLowerCase().includes(f1) || f1.includes(n.id.toLowerCase()))?.id || 'root';
+    const targetNode = INITIAL_NODES.find(n => n.id.toLowerCase().includes(f2) || f2.includes(n.id.toLowerCase()))?.id || 'somatics';
+    
+    // Check if dynamic link already exists
+    const dynId = `lnk-dyn-${story.id}`;
+    edgeId = dynId;
+    
+    base_links.push({
+      id: dynId,
+      source: sourceNode,
+      target: targetNode,
+      type: 'historical',
+      world: 'atlas',
+      labelRu: story.title,
+      labelEn: story.title,
+      resonanceWeight: 6,
+      activity: 8,
+      storyIds: [],
+      createdAt: Date.now() - 15 * 86400000
+    });
+  }
+
+  // Push storyId to the target link
+  const linkToUpdate = base_links.find(l => l.id === edgeId);
+  if (linkToUpdate) {
+    if (!linkToUpdate.storyIds) linkToUpdate.storyIds = [];
+    linkToUpdate.storyIds.push(story.id);
+  }
+
+  return {
+    id: story.id,
+    edgeId,
+    titleRu: story.title,
+    titleEn: story.title,
+    textRu: story.summaryRu || story.summary || '',
+    textEn: story.summary || '',
+    figureA: story.figure1,
+    figureB: story.figure2,
+    year: story.year || undefined,
+    sourceUrl: 'https://somatics.org/library',
+    resonances: 24 + Math.floor(Math.random() * 45),
+    verified: true
+  };
+});
+
+// Finalize initialized link array
+export const INITIAL_LINKS: SomaticLink[] = base_links;
+
+// Configure beautifully synced sample audios referencing active node ids
 export const SAMPLE_AUDIO: AudioItem[] = [
   {
-    id: 'aud1',
-    titleRu: 'Телесный Паттерн и Экология Разума',
-    titleEn: 'Somatic Pattern and the Ecology of Mind',
-    authorRu: 'Лекция: Профессор Михаил Левин',
-    authorEn: 'Lecture: Prof. Michael Levin',
-    sourceRu: 'Святошинские чтения',
-    sourceEn: 'Svyatoshyn Readings',
-    year: 2025,
-    duration: 180, // 3 mins for demo
+    id: 'aud-ecology',
+    titleRu: 'Экологический Разум и Соматические Синергии',
+    titleEn: 'Gregory Bateson and Somatic Synergies',
+    authorRu: 'Лекция: Проф. Григорий Шевелев',
+    authorEn: 'Lecture: Prof. Gregory Shevelev',
+    sourceRu: 'Конференция Мэйси 2026',
+    sourceEn: 'Macy Conference 2026',
+    year: 2026,
+    duration: 180,
     domain: 'philosophy',
     timelineNodes: [
-      { timeMs: 5000, nodeId: 'pattern-bateson', captionRu: 'Грегори Бейтсон и его формулировка связывающего паттерна.', captionEn: 'Gregory Bateson and his theory of the pattern that connects.' },
-      { timeMs: 25000, nodeId: 'soma-hanna', captionRu: 'Интеграция концептов сомы и экологии разума.', captionEn: 'Integration of Soma and the Ecology of Mind views.' },
-      { timeMs: 60000, nodeId: 'phenomenology-body', captionRu: 'Касание Мерло-Понти: Тело встречает окружающую геометрию.', captionEn: 'Merlo-Ponty contact: Body meets surrounding geometry.' },
-      { timeMs: 110000, nodeId: 'kinesthesia', captionRu: 'Кинестезия как непрерывная перцептивная экология обратной связи.', captionEn: 'Kinesthesia as sensory eco-feedback loop.' }
+      { timeMs: 5000, nodeId: 'bateson', captionRu: 'Грегори Бейтсон: Паттерн, который соединяет жизнь.', captionEn: 'Gregory Bateson: The pattern that connects.' },
+      { timeMs: 40000, nodeId: 'cybernetics', captionRu: 'Кибернетические циклы обратной связи.', captionEn: 'Cybernetic loops and system feedback.' },
+      { timeMs: 90000, nodeId: 'somatics', captionRu: 'Тело как живой энактивированный софт ума.', captionEn: 'Body as live enacted software of the mind.' },
+      { timeMs: 140000, nodeId: 'proprioception', captionRu: 'Проприоцепция как вечная нить обратной связи.', captionEn: 'Proprioception as biological feedback link.' }
     ]
   },
   {
-    id: 'aud2',
-    titleRu: 'Стив Пэкстон: Физика Падения и Радость Опоры',
-    titleEn: 'Steve Paxton: Physics of Falling and the Joy of Support',
-    authorRu: 'Юрий Кузнецов',
-    authorEn: 'Yuri Kuznetsov',
-    sourceRu: 'Диалоги о Движении',
-    sourceEn: 'Dialogues on Movement',
-    year: 2024,
-    duration: 240,
+    id: 'aud-contact',
+    titleRu: 'Стив Пэкстон: Свобода Падения и Вес Гравитации',
+    titleEn: 'Steve Paxton: Freedom of Fall and the Weight of Gravity',
+    authorRu: 'Хореограф: Мария Степанова',
+    authorEn: 'Choreographer: Mary Stepanova',
+    sourceRu: 'Лаборатория Жизнь/Искусство',
+    sourceEn: 'Life/Art Lab Sessions',
+    year: 2025,
+    duration: 220,
     domain: 'movement',
     timelineNodes: [
-      { timeMs: 10000, nodeId: 'contact-improvisation', captionRu: 'Запуск CI в колледже Оберлин в 1972 году.', captionEn: 'Launching CI at Oberlin College in 1972.' },
-      { timeMs: 45000, nodeId: 'center-of-mass', captionRu: 'Физика баллистического качения вокруг общего центра тяжести двух тел.', captionEn: 'Sensing fluid motion around dual shifting center of mass.' },
-      { timeMs: 90000, nodeId: 'yield-somatic', captionRu: 'Сдача веса опоре и уступание как форма гравитационного мышления.', captionEn: 'Giving weight to supportive floor as gravitational thinking.' },
-      { timeMs: 160000, nodeId: 'field-support', captionRu: 'Диалогический обмен тонусом и передача веса в паре.', captionEn: 'Dialogic support and muscle tone exchange in partners.' }
-    ]
-  },
-  {
-    id: 'aud3',
-    titleRu: 'Воплощенное познание вне черепного коробка',
-    titleEn: 'Embodied Cognition Outside the Skull',
-    authorRu: 'Анна Маслова',
-    authorEn: 'Anna Maslova',
-    sourceRu: 'Когнитивные Встречи',
-    sourceEn: 'Cognitive Encounters',
-    year: 2026,
-    duration: 155,
-    domain: 'cognition',
-    timelineNodes: [
-      { timeMs: 10000, nodeId: 'embodied-metaphor', captionRu: 'Джордж Лакофф и глубинная телесная природа метафор.', captionEn: 'George Lakoff and the deep somatic origins of metaphor.' },
-      { timeMs: 50000, nodeId: 'enactivism', captionRu: 'Энактивизм Франсиско Варелы: познание рождается из моторных петель.', captionEn: 'Enactivism by Varela: mind bringing forth the world.' },
-      { timeMs: 110000, nodeId: 'field-gaze', captionRu: 'Периферийное зрительное сканирование как медиум энактивации.', captionEn: 'Peripheral gaze scanning as a medium for worldly enaction.' }
+      { timeMs: 10000, nodeId: 'contact_improv', captionRu: 'Рождение контактной импровизации из веса Magnesium 1972.', captionEn: 'Emergence of contact improvisation in 1972.' },
+      { timeMs: 60000, nodeId: 'steve_paxton', captionRu: 'Стив Пэкстон и его уроки уступания гравитации.', captionEn: 'Steve Paxton coaching weight-yielding loops.' },
+      { timeMs: 120000, nodeId: 'feldenkrais', captionRu: 'Метод Фельденкрайза как перепрограммирование походки.', captionEn: 'Feldenkrais Method rewiring motor patterns.' },
+      { timeMs: 170000, nodeId: 'biomechanics', captionRu: 'Суставная биомеханика во время падений.', captionEn: 'Joint biomechanics in safe falls.' }
     ]
   }
 ];
 
+// Configure dynamic agendas
 export const SAMPLE_AGENDA: AgendaQuestion[] = [
   {
-    id: 'q1',
-    questionRu: 'Где в движении живёт политическое?',
-    questionEn: 'Where in movement does the political live?',
-    domains: ['movement', 'philosophy', 'body'],
-    contributorsCount: 8,
+    id: 'ag-q1',
+    questionRu: 'Может ли заземление унять семантическую тревогу?',
+    questionEn: 'Can grounding dissolve semantic anxiety?',
+    domains: ['body', 'philosophy', 'cognition'],
+    contributorsCount: 14,
     contributors: [
-      { name: 'Maya', avatar: 'M' },
-      { name: 'Arjun', avatar: 'A' },
-      { name: 'Sasha', avatar: 'S' },
-      { name: 'Elena', avatar: 'E' }
+      { name: 'Elena_S', avatar: 'E' },
+      { name: 'SomaticDev', avatar: 'S' },
+      { name: 'ZenFlow', avatar: 'Z' }
     ],
     answers: [
       {
-        id: 'ans1',
-        author: 'Maya',
-        textRu: 'Я вижу это через [Точку опоры] — любой контроль и иерархия всегда про узурпацию права на опору и наклон веса.',
-        textEn: 'I see this through the [Fulcrum] — any hierarchy is about controlling access to support and deciding weight vectors.',
-        linkedNodeId: 'proprioception',
-        linkedNodeNameRu: 'Проприоцепция / Точка опоры',
-        linkedNodeNameEn: 'Proprioception / Fulcrum'
-      },
-      {
-        id: 'ans2',
-        author: 'Arjun',
-        textRu: 'Через [Периферийное внимание] — политика контроля сужает зрачок до одной цели, а политическое сопротивление освобождает взгляд в периферию.',
-        textEn: 'Through [Peripheral Gaze] — authoritarian architectures narrow our focus to a single coordinate, whereas somatic resistance widens to the periphery.',
-        linkedNodeId: 'field-gaze',
-        linkedNodeNameRu: 'Периферийное внимание взгляда',
-        linkedNodeNameEn: 'Peripheral Gaze / Attention'
-      }
-    ]
-  },
-  {
-    id: 'q2',
-    questionRu: 'Может ли виртуальная реальность передать proprioception?',
-    questionEn: 'Can virtual reality convey biological proprioception?',
-    domains: ['science', 'cognition', 'body'],
-    contributorsCount: 6,
-    contributors: [
-      { name: 'DevG', avatar: 'D' },
-      { name: 'NeuroS', avatar: 'N' },
-      { name: 'SomaticsCat', avatar: 'C' }
-    ],
-    answers: [
-      {
-        id: 'ans3',
-        author: 'NeuroS',
-        textRu: 'Пока в VR нет силовой обратной связи на фасциальный тонус, proprioception подменяется визуальной обратной связью (энактивизм). Но мозг умеет достраивать нехватку чувств.',
-        textEn: 'Until VR exerts tactile forces on fascia tensility, proprioception is partially faked with visual optical flows. But the enactive mind easily fills in the blanks.'
+        id: 'ag-a1',
+        author: 'Elena_S',
+        textRu: 'Абсолютно. Вся семантическая тревога укоренена в петлях ума. Сброс веса в [Проприоцепцию] отключает префронтальное сужение внимания.',
+        textEn: 'Absolutely. All semantic anxiety is looped in abstract mind coordinates. Releasing weight to [Proprioception] disarms prefrontal focus.'
       }
     ]
   }
 ];
 
+// Configure starting activity notifications
 export const INITIAL_NOTIFICATIONS: ActivityNotification[] = [
   {
-    id: 'not1',
-    timestamp: '10:12:45',
-    textRu: 'Maya добавила новое клиническое наблюдение к [Периферийное внимание взгляда]',
-    textEn: 'Maya added a new clinical observation to [Peripheral Gaze / Attention]'
+    id: 'not-init-1',
+    timestamp: '14:20:10',
+    textRu: 'База данных успешно перестроена на 170 соматических узлов и 376 связей.',
+    textEn: 'Database successfully recalibrated to 170 somatic nodes and 376 links.'
   },
   {
-    id: 'not2',
-    timestamp: '09:41:20',
-    textRu: 'Нода [Поддержка как диалог] достигла порога 75 резонансов и активировала золотое свечение',
-    textEn: 'Node [Support as Dialogue] reached 75 resonances, triggering golden biocell glow'
-  },
-  {
-    id: 'not3',
-    timestamp: '08:05:12',
-    textRu: 'Интегрировано новое пересечение в систему: [Центр масс] ↔ [Телесная память] от DancerX',
-    textEn: 'Somatic link registered: [Center of Mass] ↔ [Body Memory] established by DancerX'
-  },
-  {
-    id: 'not4',
-    timestamp: 'Вчера',
-    textRu: 'Нода [Доверие гравитации] плавно развернулась как семя в Поле смыслов',
-    textEn: 'Node [Gravity Trust Loop] unfurled from seed state in the Field of Meaning'
+    id: 'not-init-2',
+    timestamp: '13:05:42',
+    textRu: 'Нода [Embodied AI] добавлена в Поле смыслов от SomaticPioneer.',
+    textEn: 'Node [Embodied AI] unseeded in the Field of Meaning by SomaticPioneer.'
   }
 ];
