@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { 
   INITIAL_NODES, INITIAL_LINKS, SAMPLE_AUDIO, 
-  SAMPLE_AGENDA, INITIAL_NOTIFICATIONS 
+  SAMPLE_AGENDA, INITIAL_NOTIFICATIONS, ALL_STORIES 
 } from './data/nodesData';
 import { 
-  SomaticNode, SomaticLink, World, Domain, 
+  SomaticNode, SomaticLink, World, Domain, NodeStatus,
   UserProfile, ActivityNotification, AgendaQuestion, Story 
 } from './types';
 import MyceliumGraph from './components/MyceliumGraph';
@@ -34,10 +35,38 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(true);
   const [currentWorld, setCurrentWorld] = useState<World>('atlas');
   const [userEmail, setUserEmail] = useState<string | null>('botovroman45@gmail.com'); // default logged-in user email
+
+  // Tracking dynamic user highlight states for MyceliumGraph
+  const [resonatedNodeIds, setResonatedNodeIds] = useState<Set<string>>(() =>
+    new Set(JSON.parse(localStorage.getItem('su_resonated') || '[]'))
+  );
+  const [carriedNodeIds, setCarriedNodeIds] = useState<Set<string>>(() =>
+    new Set(JSON.parse(localStorage.getItem('su_carried') || '[]'))
+  );
+  const [activeAudioNodeId, setActiveAudioNodeId] = useState<string | null>(null);
+
+  // Elegant floating notification messages (Russia / England responsive translations)
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+
+  const calcScore = (n: SomaticNode) =>
+    (n.resonances || 0) * 1.0 + (n.connections || 0) * 5.0 + (n.carries || 0) * 3.0;
+
+  const getStatus = (score: number): NodeStatus => {
+    if (score >= 100) return 'rooted';
+    if (score >= 50)  return 'alive';
+    if (score >= 10)  return 'sprout';
+    return 'seed';
+  };
+
+  const showFlash = (msg: string) => {
+    setFlashMessage(msg);
+    setTimeout(() => setFlashMessage(null), 3500);
+  };
   
   // Graph & Node collections in State to support full interactivity!
   const [nodes, setNodes] = useState<SomaticNode[]>(INITIAL_NODES);
   const [links, setLinks] = useState<SomaticLink[]>(INITIAL_LINKS);
+  const [stories, setStories] = useState<Story[]>(ALL_STORIES);
   const [agendaQuestions, setAgendaQuestions] = useState<AgendaQuestion[]>(SAMPLE_AGENDA);
   const [notifications, setNotifications] = useState<ActivityNotification[]>(INITIAL_NOTIFICATIONS);
 
@@ -50,6 +79,19 @@ export default function App() {
   const [selectedEpoch, setSelectedEpoch] = useState<number>(3); // 0: All, 1: Antiquity, 2: 20th Cent, 3: Modern/All
   const [showFiltersShelf, setShowFiltersShelf] = useState<boolean>(false);
   
+  // Custom visibility layers state checklist
+  const [visibleLayers, setVisibleLayers] = useState<{
+    atlas: boolean;
+    field: boolean;
+    hot: boolean;
+    withAudio: boolean;
+  }>({
+    atlas: true,
+    field: true,
+    hot: false,
+    withAudio: false,
+  });
+
   // Custom interactive overlay name
   const [overlayPersona, setOverlayPersona] = useState<string | null>(null);
 
@@ -90,22 +132,49 @@ export default function App() {
     return list;
   };
 
+  // Create or skip duplicate edge between central-me and a node in the Me world
+  const ensureCentralLink = (nodeId: string) => {
+    setLinks(prev => {
+      if (prev.some(l =>
+        (l.source === 'central-me' && l.target === nodeId) ||
+        (l.source === nodeId && l.target === 'central-me')
+      )) return prev;
+      return [...prev, {
+        id: `lnk-me-${nodeId}-${Date.now()}`,
+        source: 'central-me',
+        target: nodeId,
+        type: 'resonance' as const,
+        world: 'me' as const,
+        resonanceWeight: 2,
+        activity: 3,
+        addedBy: userProfile.name,
+        createdAt: Date.now()
+      }];
+    });
+  };
+
   // Mutator actions supporting full client-side persistence and response
-  const handleAddObservation = (obs: { name: string; text: string; domain: Domain; linkToId?: string }) => {
+  const handleAddObservation = (obs: { name: string; text: string; domain: Domain; linkToId?: string; isPrivate?: boolean }) => {
     // Inject node
     const newId = `node-user-${Date.now()}`;
     const newNode: SomaticNode = {
       id: newId,
       nameRu: obs.name,
       nameEn: obs.name,
+      type: 'observation',
+      level: 'meso',
       domain: obs.domain,
       world: 'field',
       status: 'seed',
       resonances: 1,
+      connections: 0,
+      carries: 0,
+      score: 1,
       descriptionRu: obs.text,
       descriptionEn: obs.text,
-      stories: [],
-      addedBy: userProfile.name
+      addedBy: userProfile.name,
+      lastActiveAt: Date.now(),
+      isPrivate: obs.isPrivate || false
     };
 
     setNodes(prev => [newNode, ...prev]);
@@ -116,6 +185,8 @@ export default function App() {
         id: `lnk-user-${Date.now()}`,
         source: newId,
         target: obs.linkToId,
+        type: 'practical',
+        world: 'field',
         resonanceWeight: 2,
         activity: 3
       };
@@ -137,6 +208,22 @@ export default function App() {
       ...prev,
       sensesAdded: prev.sensesAdded + 1
     }));
+
+    // Switch perspective based on privacy settings and trigger corresponding localized flash message
+    if (obs.isPrivate) {
+      ensureCentralLink(newId);
+      setCurrentWorld('me');
+      showFlash(language === 'ru'
+        ? `🔒 "${obs.name}" добавлено в вашу личную вселенную`
+        : `🔒 "${obs.name}" added to your private universe`
+      );
+    } else {
+      setCurrentWorld('field');
+      showFlash(language === 'ru'
+        ? `✦ "${obs.name}" проросло в Поле как Семя`
+        : `✦ "${obs.name}" seeded into the Field`
+      );
+    }
   };
 
   const handleAddConnection = (conn: { sourceId: string; targetId: string; text: string }) => {
@@ -145,11 +232,31 @@ export default function App() {
       id: `lnk-user-${Date.now()}`,
       source: conn.sourceId,
       target: conn.targetId,
+      type: 'practical',
+      world: 'field',
       resonanceWeight: 3,
       activity: 5
     };
     
     setLinks(prev => [...prev, newLnk]);
+
+    // Increment connection counts, update scores and statuses of both endpoint nodes
+    setNodes(prev => prev.map(n => {
+      if (n.id !== conn.sourceId && n.id !== conn.targetId) return n;
+      const nextConnections = (n.connections || 0) + 1;
+      const newScore = calcScore({ ...n, connections: nextConnections });
+      const updated: SomaticNode = {
+        ...n,
+        connections: nextConnections,
+        score: newScore,
+        status: n.status === 'atlas' ? 'atlas' : getStatus(newScore),
+        lastActiveAt: Date.now()
+      };
+      if (selectedNode?.id === n.id) {
+        setSelectedNode(updated);
+      }
+      return updated;
+    }));
 
     // Find nodes to generate log descriptors
     const sNode = nodes.find(n => n.id === conn.sourceId);
@@ -191,40 +298,40 @@ export default function App() {
   };
 
   const handleAddGlobalStory = (story: { nodeId: string; text: string }) => {
-    setNodes(prev => prev.map(n => {
-      if (n.id === story.nodeId) {
-        const newStory: Story = {
-          id: `story-user-${Date.now()}`,
-          author: userProfile.name,
-          textRu: story.text,
-          textEn: story.text,
-          rating: 1
-        };
-        return {
-          ...n,
-          stories: [newStory, ...n.stories]
-        };
-      }
-      return n;
-    }));
-
-    // Update state of selected node card instantly if visible
-    if (selectedNode && selectedNode.id === story.nodeId) {
-      setSelectedNode(prev => {
-        if (!prev) return null;
-        const fresh: Story = {
-          id: `story-user-${Date.now()}`,
-          author: userProfile.name,
-          textRu: story.text,
-          textEn: story.text,
-          rating: 1
-        };
-        return {
-          ...prev,
-          stories: [fresh, ...prev.stories]
-        };
-      });
+    // Find or create a link connected to this node
+    let activeLink = links.find(l => l.source === story.nodeId || l.target === story.nodeId);
+    
+    if (!activeLink) {
+      // Create a dynamic link in State
+      const targetId = 'root'; // fallback target
+      const linkId = `lnk-dyn-user-${Date.now()}`;
+      const newLnk: SomaticLink = {
+        id: linkId,
+        source: story.nodeId,
+        target: targetId,
+        type: 'practical',
+        world: 'field',
+        resonanceWeight: 3,
+        activity: 4,
+        storyIds: [],
+        createdAt: Date.now()
+      };
+      setLinks(prev => [...prev, newLnk]);
+      activeLink = newLnk;
     }
+
+    const newStory: Story = {
+      id: `story-user-${Date.now()}`,
+      edgeId: activeLink.id,
+      titleRu: 'История взаимодействия',
+      titleEn: 'Interaction Story',
+      textRu: story.text,
+      textEn: story.text,
+      resonances: 1,
+      verified: false
+    };
+
+    setStories(prev => [newStory, ...prev]);
 
     // Log update
     const timestamp = new Date().toLocaleTimeString();
@@ -269,6 +376,14 @@ export default function App() {
   };
 
   const handleNodeResonated = (nodeId: string) => {
+    // Record into personal resonance Set backed by localStorage
+    setResonatedNodeIds(prev => {
+      const next = new Set(prev);
+      next.add(nodeId);
+      localStorage.setItem('su_resonated', JSON.stringify([...next]));
+      return next;
+    });
+
     setNodes(prev => prev.map(n => {
       if (n.id === nodeId) {
         const nextResonances = n.resonances + 1;
@@ -280,10 +395,13 @@ export default function App() {
           else if (nextResonances >= 10) nextStatus = 'sprout';
         }
 
-        const updated = {
+        const score = calcScore({ ...n, resonances: nextResonances });
+        const updated: SomaticNode = {
           ...n,
           resonances: nextResonances,
-          status: nextStatus
+          score,
+          status: nextStatus,
+          lastActiveAt: Date.now()
         };
 
         // If card details select focus is active, re-sync selected details
@@ -296,8 +414,16 @@ export default function App() {
       return n;
     }));
 
+    ensureCentralLink(nodeId);
+
     // Trigger log entry
     const matchingNode = nodes.find(n => n.id === nodeId);
+    if (matchingNode) {
+      showFlash(language === 'ru'
+        ? `♦ Резонанс с "${matchingNode.nameRu}" записан в вашей вселенной`
+        : `♦ Resonance with "${matchingNode.nameEn}" recorded`
+      );
+    }
     const nodeName = matchingNode ? (language === 'ru' ? matchingNode.nameRu : matchingNode.nameEn) : 'Unknown';
     const timestamp = new Date().toLocaleTimeString();
     
@@ -312,9 +438,45 @@ export default function App() {
 
   // Carry Over: insert node into personal universe list
   const handleCarryOver = (nodeId: string) => {
-    // Simulation: clone node to my universe, write alert toast
+    // Pocket into personal carry tracking set backed by localStorage
+    setCarriedNodeIds(prev => {
+      const next = new Set(prev);
+      next.add(nodeId);
+      localStorage.setItem('su_carried', JSON.stringify([...next]));
+      return next;
+    });
+
+    // Update carries count and compile corresponding score/evolution status
+    setNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        const nextCarries = (n.carries || 0) + 1;
+        const newScore = calcScore({ ...n, carries: nextCarries });
+        const updated: SomaticNode = {
+          ...n,
+          carries: nextCarries,
+          score: newScore,
+          status: n.status === 'atlas' ? 'atlas' : getStatus(newScore),
+          lastActiveAt: Date.now()
+        };
+
+        if (selectedNode?.id === nodeId) {
+          setSelectedNode(updated);
+        }
+        return updated;
+      }
+      return n;
+    }));
+
+    ensureCentralLink(nodeId);
+
+    // Localized alert toast and activity report compilation
     const matched = nodes.find(n => n.id === nodeId);
     if (matched) {
+      showFlash(language === 'ru'
+        ? `↗ "${matched.nameRu}" добавлено в вашу вселенную`
+        : `↗ "${matched.nameEn}" carried to your universe`
+      );
+
       const timestamp = new Date().toLocaleTimeString();
       const newLog: ActivityNotification = {
         id: `log-carry-${Date.now()}`,
@@ -370,12 +532,20 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#050505] text-[#E0D8D0] overflow-hidden select-none font-sans" id="seamless-cosmos-hub">
+      {flashMessage && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none
+          bg-emerald-900/90 border border-emerald-500/30 text-emerald-300
+          text-xs px-5 py-2.5 rounded-full backdrop-blur-md shadow-xl animate-fade-in">
+          {flashMessage}
+        </div>
+      )}
       
       {/* 0. PHILOSOPHICAL ONBOARDING DECK (Initially visible to spark the somatic mood) */}
       {showOnboarding && (
         <PhilosophyOnboarding 
           onComplete={() => setShowOnboarding(false)} 
           language={language}
+          onToggleLanguage={() => setLanguage(prev => prev === 'ru' ? 'en' : 'ru')}
         />
       )}
 
@@ -504,7 +674,7 @@ export default function App() {
               currentWorld === 'atlas' ? 'bg-[#DFB757] text-[#050505]' : 'text-gray-400'
             }`}
           >
-            АТЛАС
+            {language === 'ru' ? 'АТЛАС' : 'ATLAS'}
           </button>
           <button
             onClick={() => {
@@ -515,7 +685,7 @@ export default function App() {
               currentWorld === 'field' ? 'bg-[#DFB757] text-[#050505]' : 'text-gray-400'
             }`}
           >
-            ПОЛЕ
+            {language === 'ru' ? 'ПОЛЕ' : 'FIELD'}
           </button>
           <button
             onClick={() => {
@@ -529,7 +699,7 @@ export default function App() {
               currentWorld === 'me' ? 'bg-[#DFB757] text-[#050505]' : 'text-gray-400'
             }`}
           >
-            МОЙ МИР
+            {language === 'ru' ? 'МОЙ МИР' : 'MY UNIVERSE'}
           </button>
         </div>
       </div>
@@ -630,6 +800,36 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Visibility Layers checklist checkboxes */}
+              <div className="space-y-2 border-t border-white/5 pt-3">
+                <span className="text-[9px] font-mono tracking-widest text-[#DFB757] uppercase block">
+                  {language === 'ru' ? 'АКТИВНЫЕ СЛОИ ПРОСТРАНСТВА:' : 'ACTIVE SPACE LAYERS:'}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'atlas', ru: 'Атлас (Исторический)', en: 'Atlas (Historical)' },
+                    { key: 'field', ru: 'Поле (Живые смыслы)', en: 'Field (Living Meanings)' },
+                    { key: 'hot', ru: '🔥 Горячие (50+ резон)', en: '🔥 Hot (50+ resonances)' },
+                    { key: 'withAudio', ru: '🎵 Только с аудио', en: '🎵 Only with audio' }
+                  ].map(layer => (
+                    <label key={layer.key} className="flex items-center gap-2 cursor-pointer p-1 rounded-md hover:bg-white/5 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={visibleLayers[layer.key as keyof typeof visibleLayers]}
+                        onChange={() => setVisibleLayers(prev => ({
+                          ...prev,
+                          [layer.key]: !prev[layer.key as keyof typeof visibleLayers]
+                        }))}
+                        className="accent-[#DFB757] w-3.5 h-3.5 rounded border-white/15 cursor-pointer text-[#DFB757]"
+                      />
+                      <span className="text-[10px] text-gray-300 font-sans">
+                        {language === 'ru' ? layer.ru : layer.en}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* Dynamic comparative Graph Overlay Trigger (Наложение двух графов) */}
               <div className="space-y-2 border-t border-white/5 pt-3">
                 <span className="text-[9px] font-mono tracking-widest text-[#DFB757] uppercase block">
@@ -680,6 +880,11 @@ export default function App() {
           themeColor="#DFB757"
           overlayUser={overlayPersona}
           onNodeResonate={handleNodeResonated}
+          resonatedNodeIds={resonatedNodeIds}
+          carriedNodeIds={carriedNodeIds}
+          activeAudioNodeId={activeAudioNodeId}
+          currentUserName={userProfile.name}
+          visibleLayers={visibleLayers}
         />
 
         {/* RIGHT DRAWER DETAILED SIDE SHEET NODE CARD */}
@@ -695,6 +900,8 @@ export default function App() {
             onCarryOver={handleCarryOver}
             onAddStory={(nodeId, text) => handleAddGlobalStory({ nodeId, text })}
             onPlayAudio={handleTriggerPlayAudio}
+            allStories={stories}
+            links={links}
           />
         )}
 
@@ -870,47 +1077,48 @@ export default function App() {
           </div>
         )}
 
-      </main>
+    </main>
 
-      {/* 3. FIXED BOTTOM CONTROLS HUD OVERLAYS BAR */}
-      <footer className="h-16 border-t border-[#ffffff10] bg-[#050505]/95 backdrop-blur-md flex items-center justify-between px-6 z-35 relative shrink-0">
-        
-        {/* Helper informational text block */}
-        <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono text-gray-500 leading-none">
-          <Shield className="w-3.5 h-3.5 text-[#DFB757]" />
-          <span>ROUTING EXCLUSIVELY VIA SECURE NODE PORT 3000 // READONLY FOR VISITOR MODE APPROVED</span>
-        </div>
+    <AudioPlayer
+      tracks={SAMPLE_AUDIO}
+      allNodes={nodes}
+      language={language}
+      onSelectNode={(n) => setSelectedNode(n)}
+      directPlayNodeId={activeAudioTriggerNode}
+      onClearDirectPlay={() => setActiveAudioTriggerNode(null)}
+      onActiveNode={setActiveAudioNodeId}
+    />
 
-        {/* Big Glow interactive ADD Button Centred (✧ Добавить смысл ✧) */}
-        <div className="absolute left-1/2 -translate-x-1/2 -top-6">
-          <button
-            onClick={() => {
-              if (!userEmail) {
-                setShowAuthModal(true);
-              } else {
-                setIsAddSenseOpen(true);
-              }
-            }}
-            className="w-13 h-13 rounded-full bg-gradient-to-tr from-yellow-400 via-indigo-600 to-emerald-500 text-white flex items-center justify-center hover:scale-105 active:scale-95 active:shadow-inner transition-all cursor-pointer shadow-[0_0_20px_rgba(234,179,8,0.35)]"
-            title={language === 'ru' ? 'Добавить свое соматическое наблюдение или связь' : 'Forge customized somatic observation'}
-            id="spawn-meaning-btn"
-          >
-            <Plus className="w-6 h-6 stroke-[3px]" />
-          </button>
-        </div>
+    {/* 3. FIXED BOTTOM CONTROLS HUD OVERLAYS BAR */}
+    <footer className="h-16 border-t border-[#ffffff10] bg-[#050505]/95 backdrop-blur-md flex items-center justify-between px-6 z-30 relative shrink-0">
+      
+      {/* Helper informational text block */}
+      <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono text-gray-500 leading-none">
+        <Shield className="w-3.5 h-3.5 text-[#DFB757]" />
+        <span>ROUTING EXCLUSIVELY VIA SECURE NODE PORT 3000 // READONLY FOR VISITOR MODE APPROVED</span>
+      </div>
 
-        {/* Audio Player embedded controls widget */}
-        <div className="flex-1 lg:flex-initial flex justify-end">
-          <AudioPlayer
-            tracks={SAMPLE_AUDIO}
-            allNodes={nodes}
-            language={language}
-            onSelectNode={(n) => setSelectedNode(n)}
-            directPlayNodeId={activeAudioTriggerNode}
-            onClearDirectPlay={() => setActiveAudioTriggerNode(null)}
-          />
-        </div>
-      </footer>
+      {/* Big Glow interactive ADD Button Centred (✧ Добавить смысл ✧) */}
+      <div className="absolute left-1/2 -translate-x-1/2 -top-6">
+        <button
+          onClick={() => {
+            if (!userEmail) {
+              setShowAuthModal(true);
+            } else {
+              setIsAddSenseOpen(true);
+            }
+          }}
+          className="w-13 h-13 rounded-full bg-gradient-to-tr from-yellow-400 via-indigo-600 to-emerald-500 text-white flex items-center justify-center hover:scale-105 active:scale-95 active:shadow-inner transition-all cursor-pointer shadow-[0_0_20px_rgba(234,179,8,0.35)]"
+          title={language === 'ru' ? 'Добавить свое соматическое наблюдение или связь' : 'Forge customized somatic observation'}
+          id="spawn-meaning-btn"
+        >
+          <Plus className="w-6 h-6 stroke-[3px]" />
+        </button>
+      </div>
+
+      {/* Placeholder to balance layout */}
+      <div className="flex-1 lg:flex-initial flex justify-end" />
+    </footer>
 
       {/* Interactive Creation modal forms */}
       <AddSenseModal

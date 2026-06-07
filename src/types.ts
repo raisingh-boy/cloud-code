@@ -4,18 +4,44 @@ export type World = 'atlas' | 'field' | 'me';
 
 export type NodeStatus = 'seed' | 'sprout' | 'alive' | 'rooted' | 'atlas';
 
+export type NodeType = 'concept' | 'practice' | 'person' | 'movement' | 'event' | 'observation' | 'question';
+
 export interface Story {
   id: string;
-  author: string;
+  edgeId: string;              // к какому ребру привязана (ОБЯЗАТЕЛЬНО)
+  titleRu: string;
+  titleEn: string;
   textRu: string;
   textEn: string;
-  rating: number;
+  figureA?: string;            // первый участник пересечения
+  figureB?: string;            // второй участник
+  year?: number;               // когда произошло
+  sourceUrl?: string;          // ссылка на источник
+  authorId?: string;           // кто написал (для пользовательских историй)
+  resonances: number;          // голосование за историю
+  verified: boolean;           // верифицирована командой
+}
+
+export interface Article {
+  id: string;
+  nodeId: string;              // к какой ноде привязана
+  titleRu: string;
+  titleEn: string;
+  summaryRu: string;           // выжимка 3-5 предложений
+  summaryEn: string;
+  sourceUrl?: string;          // ссылка на оригинал
+  sourceTitle?: string;        // название источника
+  year?: number;
+  type: 'research' | 'article' | 'book' | 'video';
+  addedBy?: string;            // команда или пользователь
 }
 
 export interface SomaticNode {
   id: string;
   nameRu: string;
   nameEn: string;
+  type: NodeType;
+  level: 'macro' | 'meso' | 'micro';
   domain: Domain;
   world: World;
   status: NodeStatus;
@@ -26,29 +52,45 @@ export interface SomaticNode {
   authorEn?: string;
   epochRu?: string; // e.g., "1960s", "Antiquity"
   epochEn?: string;
-  stories: Story[];
   addedBy?: string;
   isPrivate?: boolean;
+  connections?: number;   // how many times a connection was made with this node
+  carries?: number;       // how many times a node was pocketed
+  score?: number;         // computed evolution score
+  lastActiveAt?: number;  // last custom interaction timestamp
+  articles?: Article[];
   
   // Physics parameters (assigned dynamically if needed)
   x?: number;
   y?: number;
+  z?: number;
   vx?: number;
   vy?: number;
+  vz?: number;
   targetX?: number; // target coordinates during animations / transitions
   targetY?: number;
+  targetZ?: number;
   currentRadius?: number;
   baseRadius?: number;
   breathPhase?: number;
   breathSpeed?: number;
 }
 
+export type EdgeType = 'conceptual' | 'historical' | 'practical' | 'resonance' | 'opposition';
+
 export interface SomaticLink {
   id: string;
   source: string; // source node id
   target: string; // target node id
+  type: EdgeType;
+  world: 'atlas' | 'field' | 'me';
+  labelRu?: string;
+  labelEn?: string;
   resonanceWeight: number; // strength of link
   activity: number;        // activity score (influences particles)
+  addedBy?: string;        // кто добавил (для field рёбер)
+  storyIds?: string[];     // истории привязанные к ЭТОМУ РЕБРУ
+  createdAt?: number;
 }
 
 export interface PulseParticle {
@@ -93,6 +135,7 @@ export interface AgendaQuestion {
     linkedNodeId?: string;
     linkedNodeNameRu?: string;
     linkedNodeNameEn?: string;
+    linkedNodeNameEn_temp?: string; // fallback if needed
   }[];
 }
 

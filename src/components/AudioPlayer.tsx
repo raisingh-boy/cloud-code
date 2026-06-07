@@ -13,6 +13,7 @@ interface AudioPlayerProps {
   // Option to play a specific node directly (which maps to a track and timestamp)
   directPlayNodeId?: string | null;
   onClearDirectPlay?: () => void;
+  onActiveNode?: (nodeId: string | null) => void;
 }
 
 const DOMAIN_COLORS: Record<Domain, string> = {
@@ -30,7 +31,8 @@ export default function AudioPlayer({
   language,
   onSelectNode,
   directPlayNodeId,
-  onClearDirectPlay
+  onClearDirectPlay,
+  onActiveNode
 }: AudioPlayerProps) {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -40,6 +42,37 @@ export default function AudioPlayer({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeTrack = tracks[currentTrackIndex];
+
+  // Find node active at current simulated timestamp
+  const getCurrentlyActiveTimelineNode = () => {
+    const timeMs = currentTime * 1000;
+    const timeline = activeTrack.timelineNodes;
+    
+    // Nodes are sorted by time. Find the latest node that has starting timestamp <= current time
+    let activeCheckpoint = null;
+    for (let i = 0; i < timeline.length; i++) {
+      if (timeMs >= timeline[i].timeMs) {
+        activeCheckpoint = timeline[i];
+      }
+    }
+    return activeCheckpoint;
+  };
+
+  const currentCheckpoint = getCurrentlyActiveTimelineNode();
+  const currentSomaticNode = currentCheckpoint 
+    ? allNodes.find(n => n.id === currentCheckpoint.nodeId) 
+    : null;
+
+  // Let parent know which node is currently spoken/active
+  useEffect(() => {
+    if (onActiveNode) {
+      if (isPlaying) {
+        onActiveNode(currentCheckpoint?.nodeId || null);
+      } else {
+        onActiveNode(null);
+      }
+    }
+  }, [currentCheckpoint?.nodeId, isPlaying, onActiveNode]);
 
   // Monitor external triggers for play requests
   useEffect(() => {
@@ -110,32 +143,12 @@ export default function AudioPlayer({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Find node active at current simulated timestamp
-  const getCurrentlyActiveTimelineNode = () => {
-    const timeMs = currentTime * 1000;
-    const timeline = activeTrack.timelineNodes;
-    
-    // Nodes are sorted by time. Find the latest node that has starting timestamp <= current time
-    let activeCheckpoint = null;
-    for (let i = 0; i < timeline.length; i++) {
-      if (timeMs >= timeline[i].timeMs) {
-        activeCheckpoint = timeline[i];
-      }
-    }
-    return activeCheckpoint;
-  };
-
-  const currentCheckpoint = getCurrentlyActiveTimelineNode();
-  const currentSomaticNode = currentCheckpoint 
-    ? allNodes.find(n => n.id === currentCheckpoint.nodeId) 
-    : null;
-
   return (
     <>
       {/* 1. COMPACT FIXED MINI PLAYER HUD (Always docked at bottom-right viewport if minimized) */}
       {!isMaximized && (
         <div 
-          className="fixed bottom-4 right-4 w-[360px] bg-[#0E1528]/95 border border-white/10 backdrop-blur-md p-3 rounded-2xl flex items-center justify-between shadow-2xl z-40 cursor-pointer hover:border-yellow-500/30 transition-all animate-slide-in select-none"
+          className="fixed bottom-24 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-[360px] bg-[#0E1528]/95 border border-white/10 backdrop-blur-md p-3 rounded-2xl flex items-center justify-between shadow-2xl z-40 cursor-pointer hover:border-yellow-500/30 transition-all animate-slide-in select-none"
           onClick={() => setIsMaximized(true)}
           id="mini-deck-player"
         >
